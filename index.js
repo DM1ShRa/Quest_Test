@@ -1,79 +1,65 @@
-const express = require('express');
+const express = require("express");
 const app = express();
-const path = require('path');
-const mongoose = require('mongoose');
-const methodOverride = require('method-override')
+const mongoose = require("mongoose");
+const Products = require("./models/product");
+const bodyParser = require("body-parser");
 
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 
-const Product = require('./models/product');
-
-mongoose.connect('mongodb://localhost:27017/farmStand', { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose
+    .connect(
+        "mongodb+srv://2021anketkadam:darashmishra@cluster0.feviwo2.mongodb.net/?retryWrites=true&w=majority", { useNewUrlParser: true, useUnifiedTopology: true, dbName: "farm" }
+    )
     .then(() => {
-        console.log("MONGO CONNECTION OPEN!!!")
+        console.log("connection is ready!!");
     })
-    .catch(err => {
-        console.log("OH NO MONGO CONNECTION ERROR!!!!")
-        console.log(err)
-    })
+    .catch((e) => {
+        console.log(e);
+    });
 
+app.get("/products", async(req, res) => {
+    const products = await Products.find();
+    res.send(products);
+});
 
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
-
-app.use(express.urlencoded({ extended: true }));
-app.use(methodOverride('_method'))
-
-const categories = ['fruit', 'vegetable', 'dairy'];
-
-app.get('/products', async (req, res) => {
-    const { category } = req.query;
-    if (category) {
-        const products = await Product.find({ category })
-        res.render('products/index', { products, category })
-    } else {
-        const products = await Product.find({})
-        res.render('products/index', { products, category: 'All' })
+app.post("/products", async(req, res) => {
+    console.log(req.body);
+    const product = new Products({
+        name: req.body.name,
+        price: req.body.price,
+        category: req.body.category,
+    });
+    try {
+        const newProduct = await product.save();
+        res.status(200).send(newProduct);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Error saving product.");
     }
-})
+});
 
-app.get('/products/new', (req, res) => {
-    res.render('products/new', { categories })
-})
+app.put("/products/:id", async(req, res) => {
+    const foundProduct = await Products.findByIdAndUpdate(
+        req.params.id, {
+            name: req.body.name,
+            price: req.body.price,
+            category: req.body.category,
+        }, { new: true }
+    );
+    const product = await foundProduct.save();
+    res.send(product);
+});
 
-app.post('/products', async (req, res) => {
-    const newProduct = new Product(req.body);
-    await newProduct.save();
-    res.redirect(`/products/${newProduct._id}`)
-})
-
-app.get('/products/:id', async (req, res) => {
-    const { id } = req.params;
-    const product = await Product.findById(id)
-    res.render('products/show', { product })
-})
-
-app.get('/products/:id/edit', async (req, res) => {
-    const { id } = req.params;
-    const product = await Product.findById(id);
-    res.render('products/edit', { product, categories })
-})
-
-app.put('/products/:id', async (req, res) => {
-    const { id } = req.params;
-    const product = await Product.findByIdAndUpdate(id, req.body, { runValidators: true, new: true });
-    res.redirect(`/products/${product._id}`);
-})
-
-app.delete('/products/:id', async (req, res) => {
-    const { id } = req.params;
-    const deletedProduct = await Product.findByIdAndDelete(id);
-    res.redirect('/products');
-})
-
-
+app.delete("/products/:id", async(req, res) => {
+    const toDelete = await Products.findByIdAndRemove(req.params.id);
+    if (toDelete) {
+        res.send(toDelete);
+    } else {
+        res.send("not removed soryy ");
+    }
+});
 
 app.listen(3000, () => {
-    console.log("APP IS LISTENING ON PORT 3000!")
-})
-
-
+    console.log("listening on port no 3000");
+});
